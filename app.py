@@ -150,7 +150,7 @@ h1, h2, h3 {
     min-height: 62px;
     border-radius: 18px !important;
     border: 0px !important;
-    font-size: 16px !important;
+    font-size: 17px !important;
     font-weight: 900 !important;
     padding: 0.95rem 1rem !important;
     background: linear-gradient(90deg, #00c6ff, #0072ff) !important;
@@ -349,10 +349,10 @@ def get_next_round():
 
 def centered_team_button(team, match_key):
     """
-    Centra el bloque completo del botón debajo de la card del equipo.
-    La proporción [1.15, 1, 1.15] deja el botón en el centro visual.
+    Botón ancho y centrado debajo de cada bloque de equipo.
+    La proporción [0.15, 2.7, 0.15] deja márgenes pequeños y estira el botón.
     """
-    empty_left, button_col, empty_right = st.columns([1.15, 1, 1.15])
+    empty_left, button_col, empty_right = st.columns([0.15, 2.7, 0.15])
 
     with button_col:
         clicked = st.button(f"Elegir {team}", key=f"btn_{match_key}_{team}")
