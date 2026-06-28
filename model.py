@@ -1,114 +1,105 @@
 import pandas as pd
 import numpy as np
-from xgboost import XGBClassifier
+from scipy.stats import poisson
 
 # ---------------------------
 # 1. DATA
 # ---------------------------
 df = pd.read_csv("results.csv")
 df = df[['date','home_team','away_team','home_score','away_score']].dropna()
-df['date'] = pd.to_datetime(df['date'])
-df = df.sort_values("date")
 
 # ---------------------------
-# 2. ELO DINÁMICO
+# 2. PARAMETROS GLOBALES
 # ---------------------------
-elo = {}
-K = 20
+avg_goals = df['home_score'].mean()
 
-def get_elo(team):
-    return elo.get(team, 1500)
+teams = pd.concat([df['home_team'], df['away_team']]).unique()
 
-def expected(r1, r2):
-    return 1 / (1 + 10 ** ((r2 - r1) / 400))
-
-def update_elo(t1, t2, s1):
-    r1, r2 = get_elo(t1), get_elo(t2)
-    e1 = expected(r1, r2)
-    elo[t1] = r1 + K * (s1 - e1)
-    elo[t2] = r2 + K * ((1 - s1) - (1 - e1))
-
-# construir dataset
-X, y = [], []
-
-for _, row in df.iterrows():
-    t1, t2 = row['home_team'], row['away_team']
-
-    e1, e2 = get_elo(t1), get_elo(t2)
-
-    # label
-    if row['home_score'] > row['away_score']:
-        res = 1
-        s1 = 1
-    elif row['home_score'] < row['away_score']:
-        res = 2
-        s1 = 0
-    else:
-        res = 0
-        s1 = 0.5
-
-    X.append([e1, e2, e1 - e2])
-    y.append(res)
-
-    update_elo(t1, t2, s1)
-
-X = np.array(X)
-y = np.array(y)
+attack = {t:1.0 for t in teams}
+defense = {t:1.0 for t in teams}
 
 # ---------------------------
-# 3. MODELO
+# 3. ESTIMAR ATAQUE / DEFENSA
 # ---------------------------
-model = XGBClassifier(eval_metric="mlogloss")
-model.fit(X, y)
+for t in teams:
+    home = df[df['home_team'] == t]
+    away = df[df['away_team'] == t]
+
+    goals_for = home['home_score'].sum() + away['away_score'].sum()
+    goals_against = home['away_score'].sum() + away['home_score'].sum()
+
+    games = len(home) + len(away)
+
+    if games > 0:
+        attack[t] = goals_for / games / avg_goals
+        defense[t] = goals_against / games / avg_goals
 
 # ---------------------------
-# 4. PREDICCIÓN
+# 4. EXPECTED GOALS (xG proxy)
 # ---------------------------
-def predict_proba(t1, t2):
-    e1, e2 = get_elo(t1), get_elo(t2)
-    probs = model.predict_proba([[e1, e2, e1 - e2]])[0]
-
-    return {
-        "win1": probs[1],
-        "draw": probs[0],
-        "win2": probs[2]
-    }
+def expected_goals(t1, t2):
+    lam1 = attack[t1] * defense[t2] * avg_goals
+    lam2 = attack[t2] * defense[t1] * avg_goals
+    return lam1, lam2
 
 # ---------------------------
-# 5. SIMULACIÓN PARTIDO
+# 5. SIMULAR PARTIDO
 # ---------------------------
 def simulate_match(t1, t2):
-    p = predict_proba(t1, t2)
-    r = np.random.rand()
+    lam1, lam2 = expected_goals(t1, t2)
 
-    if r < p["win1"]:
+    g1 = poisson.rvs(lam1)
+    g2 = poisson.rvs(lam2)
+
+    # knockout → sin empate
+    if g1 > g2:
         return t1
-    elif r < p["win1"] + p["draw"]:
-        return np.random.choice([t1, t2])  # penales
-    else:
+    elif g2 > g1:
         return t2
+    else:
+        return np.random.choice([t1, t2])  # penales
 
 # ---------------------------
-# 6. SIMULACIÓN TORNEO
+# 6. PROBABILIDADES EXACTAS
 # ---------------------------
-def simulate_tournament(bracket, n=1000):
-    winners = {}
+def match_probabilities(t1, t2, max_goals=6):
+    lam1, lam2 = expected_goals(t1, t2)
+
+    p1 = p2 = draw = 0
+
+    for i in range(max_goals):
+        for j in range(max_goals):
+            p = poisson.pmf(i, lam1) * poisson.pmf(j, lam2)
+
+            if i > j:
+                p1 += p
+            elif j > i:
+                p2 += p
+            else:
+                draw += p
+
+    return {"win1": p1, "draw": draw, "win2": p2}
+
+# ---------------------------
+# 7. MONTE CARLO TORNEO
+# ---------------------------
+def simulate_tournament(bracket, n=5000):
+    results = {}
 
     for _ in range(n):
-        round_teams = bracket[:]
+        teams = bracket[:]
 
-        while len(round_teams) > 1:
+        while len(teams) > 1:
             next_round = []
-            for i in range(0, len(round_teams), 2):
-                winner = simulate_match(round_teams[i], round_teams[i+1])
+            for i in range(0, len(teams), 2):
+                winner = simulate_match(teams[i], teams[i+1])
                 next_round.append(winner)
-            round_teams = next_round
+            teams = next_round
 
-        champ = round_teams[0]
-        winners[champ] = winners.get(champ, 0) + 1
+        champ = teams[0]
+        results[champ] = results.get(champ, 0) + 1
 
-    # probabilidades
-    for k in winners:
-        winners[k] /= n
+    for t in results:
+        results[t] /= n
 
-    return dict(sorted(winners.items(), key=lambda x: -x[1]))
+    return dict(sorted(results.items(), key=lambda x: -x[1]))
