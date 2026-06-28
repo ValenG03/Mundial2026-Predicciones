@@ -1,32 +1,59 @@
 import streamlit as st
-import joblib
-import os
+from model import predict_match
 
-# asegurar modelo
-if not os.path.exists("model.pkl"):
-    import model
+st.title("🏆 Predictor Mundial 2026 - 16avos")
 
-data = joblib.load("model.pkl")
-elo = data["elo"]
-model = data["model"]
-
-def predict(team1, team2):
-    diff = elo.get(team1, 1500) - elo.get(team2, 1500)
-    probs = model.predict_proba([[diff]])[0]
-    away, draw, home = probs
-    return home, draw, away
-
-st.title("🏆 World Cup 2026 Predictor")
-
+# ---------------------------
+# PARTIDOS (basados en tu imagen)
+# ---------------------------
 matches = [
-    ("France", "Sweden"),
-    ("Brazil", "Germany"),
-    ("Argentina", "England"),
+    ("ALE", "PAR"),
+    ("FRA", "SUE"),
+    ("SUD", "CAN"),
+    ("PBJ", "MAR"),
+    ("POR", "CRO"),
+    ("ESP", "AUT"),
+    ("USA", "BYH"),
+    ("BEL", "SEN"),
+
+    ("BRA", "JAP"),
+    ("CDM", "NOR"),
+    ("MEX", "ECU"),
+    ("ING", "RDC"),
+    ("ARG", "CBV"),
+    ("AUS", "EGI"),
+    ("SUI", "AGL"),
+    ("COL", "GHA"),
 ]
 
-team1, team2 = st.selectbox("Match", matches)
+# ---------------------------
+# Mostrar predicciones
+# ---------------------------
+for t1, t2 in matches:
+    probs = predict_match(t1, t2)
 
-home, draw, away = predict(team1, team2)
+    st.write(
+        f"**{t1} vs {t2}**  \n"
+        f"1️⃣ {probs['team1_win']*100:.1f}% | "
+        f"❌ {probs['draw']*100:.1f}% | "
+        f"2️⃣ {probs['team2_win']*100:.1f}%"
+    )
 
-st.subheader(f"{team1} vs {team2}")
-st.markdown(f"### 1️⃣ {home*100:.1f}% | 🤝 {draw*100:.1f}% | 2️⃣ {away*100:.1f}%")
+# ---------------------------
+# Descarga CSV
+# ---------------------------
+import pandas as pd
+
+data = []
+for t1, t2 in matches:
+    p = predict_match(t1, t2)
+    data.append([t1, t2, p['team1_win'], p['draw'], p['team2_win']])
+
+df = pd.DataFrame(data, columns=["Team1", "Team2", "Win1", "Draw", "Win2"])
+
+st.download_button(
+    "⬇️ Descargar predicciones",
+    df.to_csv(index=False),
+    "predicciones.csv",
+    "text/csv"
+)
