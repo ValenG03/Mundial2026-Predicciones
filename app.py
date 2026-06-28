@@ -4,7 +4,7 @@ from model import load_results, match_probabilities, simulate_match
 
 
 st.set_page_config(
-    page_title="Modelo de Predicción y Simulación Mundial 2026",
+    page_title="Predictor Mundial 2026",
     page_icon="🏆",
     layout="wide"
 )
@@ -24,6 +24,25 @@ h1, h2, h3 {
     color: white !important;
 }
 
+.center-text {
+    text-align: center;
+}
+
+.sidebar-title-black {
+    color: black;
+    font-weight: 900;
+    font-size: 24px;
+    margin-bottom: 10px;
+}
+
+.sidebar-subtitle-black {
+    color: black;
+    font-weight: 900;
+    font-size: 20px;
+    margin-top: 10px;
+    margin-bottom: 8px;
+}
+
 .team-card {
     background: linear-gradient(145deg, rgba(255,255,255,0.13), rgba(255,255,255,0.04));
     border: 1px solid rgba(255,255,255,0.18);
@@ -31,6 +50,7 @@ h1, h2, h3 {
     padding: 18px;
     margin-bottom: 12px;
     box-shadow: 0 8px 25px rgba(0,0,0,0.28);
+    min-height: 245px;
 }
 
 .match-card {
@@ -38,7 +58,7 @@ h1, h2, h3 {
     border: 1px solid rgba(255,255,255,0.16);
     border-radius: 22px;
     padding: 20px;
-    margin-bottom: 20px;
+    margin-bottom: 22px;
 }
 
 .flag-img {
@@ -53,7 +73,7 @@ h1, h2, h3 {
 }
 
 .prob-big {
-    font-size: 36px;
+    font-size: 38px;
     font-weight: 900;
     color: #f7c948;
     text-align: center;
@@ -68,18 +88,55 @@ h1, h2, h3 {
     margin-bottom: 8px;
 }
 
-.center-text {
+.vs-box {
+    height: 245px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 4px;
+}
+
+.vs-icon {
+    font-size: 46px;
     text-align: center;
+    line-height: 1;
+}
+
+.vs-text {
+    font-size: 22px;
+    font-weight: 900;
+    text-align: center;
+    color: white;
+    letter-spacing: 1px;
+}
+
+.direct-games {
+    font-size: 13px;
+    color: #d8e8ff;
+    text-align: center;
+    margin-top: 8px;
 }
 
 .winner-box {
     background: linear-gradient(90deg, #f7c948, #f59e0b);
     color: #06172e;
-    font-weight: 800;
+    font-weight: 900;
     border-radius: 16px;
     padding: 10px;
     text-align: center;
     margin-top: 10px;
+}
+
+.round-pill {
+    background: linear-gradient(90deg, #00c6ff, #0072ff);
+    color: white;
+    font-weight: 900;
+    border-radius: 18px;
+    padding: 12px 18px;
+    text-align: center;
+    margin-bottom: 20px;
+    font-size: 24px;
 }
 
 .stButton > button {
@@ -137,8 +194,6 @@ teams = [
 ]
 
 
-# Códigos para usar banderas como imágenes.
-# Esto evita problemas de visualización de emojis en Windows / Microsoft / DELL.
 flag_codes = {
     "Germany": "de",
     "Paraguay": "py",
@@ -307,16 +362,20 @@ def show_match(t1, t2, match_index):
 
         if st.button(f"Elegir {t1}", key=f"btn_{match_key}_{t1}"):
             st.session_state.selected_winners[match_key] = t1
+            st.session_state.champion_probs = None
             st.rerun()
 
     with col2:
-        st.markdown("""
-        <br><br>
-        <h1 class="center-text">⚔️</h1>
-        <p class="center-text"><b>VS</b></p>
+        st.markdown(f"""
+        <div class="vs-box">
+            <div class="vs-icon">⚔️</div>
+            <div class="vs-text">VS</div>
+            <div class="direct-games">
+                Partidos directos:<br>
+                <b>{p["h2h_games"]}</b>
+            </div>
+        </div>
         """, unsafe_allow_html=True)
-
-        st.caption(f"Partidos directos encontrados: {p['h2h_games']}")
 
     with col3:
         st.markdown(f"""
@@ -330,6 +389,7 @@ def show_match(t1, t2, match_index):
 
         if st.button(f"Elegir {t2}", key=f"btn_{match_key}_{t2}"):
             st.session_state.selected_winners[match_key] = t2
+            st.session_state.champion_probs = None
             st.rerun()
 
     if selected:
@@ -345,9 +405,9 @@ def show_match(t1, t2, match_index):
 # HEADER
 # --------------------------------------------------
 st.markdown("""
-<h1 class="center-text">🏆 Modelo de Predicción y Simulación Mundial 2026</h1>
+<h1 class="center-text">🏆 Predictor Mundial 2026</h1>
 <h3 class="center-text">Elegí tus ganadores y simulá el campeón más probable</h3>
-<p class="center-text">⚽🔥🌎⭐🥅🏟️</p>
+<p class="center-text">⚽ 🔥 🌎 ⭐ 🥅 🏟️</p>
 """, unsafe_allow_html=True)
 
 
@@ -355,7 +415,7 @@ st.markdown("""
 # SIDEBAR
 # --------------------------------------------------
 with st.sidebar:
-    st.header("🎮 Panel del torneo")
+    st.markdown('<div class="sidebar-title-black">🎮 Panel del torneo</div>', unsafe_allow_html=True)
 
     st.write(f"**Fase actual:** {round_names.get(len(st.session_state.round_teams), 'Ronda')}")
     st.write(f"**Equipos vivos:** {len(st.session_state.round_teams)}")
@@ -367,7 +427,8 @@ with st.sidebar:
 
     st.divider()
 
-    st.subheader("📌 Nota metodológica")
+    st.markdown('<div class="sidebar-subtitle-black">📌 Nota metodológica</div>', unsafe_allow_html=True)
+
     st.write(
         "Las probabilidades se estiman con resultados históricos. "
         "No representan una predicción perfecta del Mundial 2026, "
@@ -381,7 +442,7 @@ with st.sidebar:
 current_teams = st.session_state.round_teams
 round_title = round_names.get(len(current_teams), "Ronda")
 
-st.subheader(f"🔵 {round_title}")
+st.markdown(f'<div class="round-pill">🔵 {round_title}</div>', unsafe_allow_html=True)
 
 if len(current_teams) == 1:
     champion = current_teams[0]
