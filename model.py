@@ -1,45 +1,39 @@
 import pandas as pd
 from xgboost import XGBClassifier
 
-def compute_elo(df, k=20):
-    elo = {}
-    ratings = []
+def load_data():
+    df = pd.read_csv("results.csv")
+    df = df[['home_team', 'away_team', 'home_score', 'away_score']].dropna()
+    
+    df['target'] = (df['home_score'] > df['away_score']).astype(int)
+    return df
 
-    for _, row in df.iterrows():
-        t1, t2 = row["home_team"], row["away_team"]
-        elo.setdefault(t1, 1500)
-        elo.setdefault(t2, 1500)
-
-        r1, r2 = elo[t1], elo[t2]
-        exp1 = 1 / (1 + 10 ** ((r2 - r1) / 400))
-
-        if row["home_score"] > row["away_score"]:
-            score1 = 1
-        elif row["home_score"] < row["away_score"]:
-            score1 = 0
-        else:
-            score1 = 0.5
-
-        elo[t1] += k * (score1 - exp1)
-        elo[t2] += k * ((1 - score1) - (1 - exp1))
-
-        ratings.append((elo[t1], elo[t2]))
-
-    df["elo_home"], df["elo_away"] = zip(*ratings)
-    return df, elo
+def simple_features(df):
+    teams = pd.concat([df['home_team'], df['away_team']]).unique()
+    team_map = {team: i for i, team in enumerate(teams)}
+    
+    df['home_id'] = df['home_team'].map(team_map)
+    df['away_id'] = df['away_team'].map(team_map)
+    
+    return df[['home_id', 'away_id']], df['target'], team_map
 
 def train_model():
-    df = pd.read_csv("results.csv")
-
-    df = df.dropna(subset=["home_score", "away_score"])
-    df["result"] = (df["home_score"] > df["away_score"]).astype(int)
-
-    df, elo = compute_elo(df)
-
-    X = df[["elo_home", "elo_away"]]
-    y = df["result"]
-
-    model = XGBClassifier(n_estimators=50, max_depth=3)
+    df = load_data()
+    X, y, team_map = simple_features(df)
+    
+    model = XGBClassifier(n_estimators=50, max_depth=4)
     model.fit(X, y)
+    
+    return model, team_map
 
-    return model, elo
+def predict(model, team_map, team1, team2):
+    if team1 not in team_map or team2 not in team_map:
+        return "Equipo desconocido"
+    
+    X = pd.DataFrame([{
+        'home_id': team_map[team1],
+        'away_id': team_map[team2]
+    }])
+    
+    prob = model.predict_proba(X)[0][1]
+    return prob
