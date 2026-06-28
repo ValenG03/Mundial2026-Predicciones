@@ -1,5 +1,6 @@
 import streamlit as st
 from model import match_probabilities, simulate_tournament
+import pandas as pd
 
 st.title("🏆 Modelo de Predicción y Simulación Mundial 2026")
 
@@ -14,16 +15,23 @@ teams = [
 
 st.subheader("🔮 Probabilidades por partido")
 
+matches = []
+
 for i in range(0, len(teams), 2):
     t1, t2 = teams[i], teams[i+1]
-    p = match_probabilities(t1, t2)
+    try:
+        p = match_probabilities(t1, t2)
+        matches.append({
+            "Match": f"{t1} vs {t2}",
+            "Team 1": p["win1"],
+            "Draw": p["draw"],
+            "Team 2": p["win2"]
+        })
+    except:
+        st.error(f"Error en {t1} vs {t2}")
 
-    st.write(
-        f"{t1} vs {t2} → "
-        f"{p['win1']*100:.1f}% | "
-        f"{p['draw']*100:.1f}% | "
-        f"{p['win2']*100:.1f}%"
-    )
+df_matches = pd.DataFrame(matches)
+st.dataframe(df_matches)
 
 st.subheader("🧠 Simulación completa")
 
@@ -32,9 +40,8 @@ n = st.slider("Simulaciones", 1000, 50000, 10000)
 if st.button("Simular Mundial"):
     results = simulate_tournament(teams, n)
 
-    st.subheader("🏆 Probabilidad de campeón")
+    df = pd.DataFrame(list(results.items()), columns=["Team", "Prob"])
+    df = df.sort_values("Prob", ascending=False)
 
-    for t, p in results.items():
-        st.write(f"{t}: {p*100:.2f}%")
-
-    st.bar_chart(results)
+    st.dataframe(df)
+    st.bar_chart(df.set_index("Team"))
