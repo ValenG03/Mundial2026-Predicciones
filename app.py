@@ -1,40 +1,19 @@
 import streamlit as st
-import pandas as pd
+from model import train_model, predict
 
-st.title("🏆 FIFA 2026 Predictor")
+st.title("🏆 Predictor Mundial 2026")
 
-try:
-    df = pd.read_csv("results.csv")
-    st.write("✅ Dataset cargado", df.head())
+model, team_map = train_model()
 
-except Exception as e:
-    st.error(f"Error cargando dataset: {e}")
-    st.stop()
-
-try:
-    from model import train_model
-    model, elo = train_model()
-    st.write("✅ Modelo entrenado")
-
-except Exception as e:
-    st.error(f"Error entrenando modelo: {e}")
-    st.stop()
-
-teams = list(elo.keys())
+teams = list(team_map.keys())
 
 team1 = st.selectbox("Equipo 1", teams)
 team2 = st.selectbox("Equipo 2", teams)
 
 if st.button("Predecir"):
-    try:
-        e1 = elo.get(team1, 1500)
-        e2 = elo.get(team2, 1500)
-
-        X = pd.DataFrame([[e1, e2]], columns=["elo_home", "elo_away"])
-        prob = model.predict_proba(X)[0][1]
-
-        st.success(f"{team1}: {prob:.2f}")
-        st.success(f"{team2}: {1 - prob:.2f}")
-
-    except Exception as e:
-        st.error(f"Error en predicción: {e}")
+    prob = predict(model, team_map, team1, team2)
+    
+    if isinstance(prob, str):
+        st.error(prob)
+    else:
+        st.success(f"Probabilidad de que gane {team1}: {prob:.2f}")
