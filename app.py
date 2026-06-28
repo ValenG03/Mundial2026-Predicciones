@@ -1,19 +1,34 @@
 import streamlit as st
-from model import train_model, predict
+import joblib
 
-st.title("🏆 Predictor Mundial 2026")
+st.title("🏆 FIFA World Cup 2026 Predictor")
 
-model, team_map = train_model()
+elo, predict_proba = joblib.load("model.pkl")
 
-teams = list(team_map.keys())
+# ejemplo fijo (podés expandir a 16avos después)
+matches = [
+    ("France", "Sweden"),
+    ("Brazil", "Germany"),
+    ("Argentina", "England"),
+]
 
-team1 = st.selectbox("Equipo 1", teams)
-team2 = st.selectbox("Equipo 2", teams)
+match = st.selectbox("Select Match", matches)
 
-if st.button("Predecir"):
-    prob = predict(model, team_map, team1, team2)
-    
-    if isinstance(prob, str):
-        st.error(prob)
-    else:
-        st.success(f"Probabilidad de que gane {team1}: {prob:.2f}")
+team1, team2 = match
+
+diff = elo.get(team1, 1500) - elo.get(team2, 1500)
+probs = predict_proba(diff)
+
+away, draw, home = probs
+
+st.subheader(f"{team1} vs {team2}")
+
+st.markdown(f"""
+### 1️⃣ {home*100:.1f}% | 🤝 {draw*100:.1f}% | 2️⃣ {away*100:.1f}%
+""")
+
+st.download_button(
+    "Download probabilities",
+    data=f"{team1},{team2},{home},{draw},{away}",
+    file_name="prediction.csv"
+)
