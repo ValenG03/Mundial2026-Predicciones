@@ -1,7 +1,7 @@
 import streamlit as st
 from model import match_probabilities, simulate_tournament
 
-st.title("🏆 Predicción y Simulación Mundial 2026")
+st.title("🏆 Modelo de Predicción y Simulación Mundial 2026")
 
 teams = [
     "Germany","Paraguay","France","Sweden","South Africa","Canada",
@@ -12,10 +12,7 @@ teams = [
     "Switzerland","Algeria","Colombia","Ghana"
 ]
 
-# ---------------------------
-# MATCH PROBS
-# ---------------------------
-st.subheader("🔮 Probabilidades (Poisson)")
+st.subheader("🔮 Probabilidades por partido")
 
 for i in range(0, len(teams), 2):
     t1, t2 = teams[i], teams[i+1]
@@ -28,17 +25,14 @@ for i in range(0, len(teams), 2):
         f"{p['win2']*100:.1f}%"
     )
 
-# ---------------------------
-# SIMULACIÓN
-# ---------------------------
 st.subheader("🧠 Simulación completa")
 
-n = st.slider("Simulaciones", 1000, 20000, 5000)
+n = st.slider("Simulaciones", 1000, 50000, 10000)
 
 if st.button("Simular Mundial"):
     results = simulate_tournament(teams, n)
 
-    st.subheader("🏆 Campeón probabilístico")
+    st.subheader("🏆 Probabilidad de campeón")
 
     for t, p in results.items():
         st.write(f"{t}: {p*100:.2f}%")
