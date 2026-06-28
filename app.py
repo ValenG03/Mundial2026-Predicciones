@@ -4,7 +4,7 @@ from model import load_results, match_probabilities, simulate_match
 
 
 st.set_page_config(
-    page_title="Predictor Mundial 2026",
+    page_title="Modelo de Predicción y Simulación Mundial 2026",
     page_icon="🏆",
     layout="wide"
 )
@@ -48,9 +48,10 @@ h1, h2, h3 {
     border: 1px solid rgba(255,255,255,0.18);
     border-radius: 20px;
     padding: 18px;
-    margin-bottom: 12px;
+    margin-bottom: 14px;
     box-shadow: 0 8px 25px rgba(0,0,0,0.28);
     min-height: 245px;
+    width: 100%;
 }
 
 .match-card {
@@ -139,9 +140,13 @@ h1, h2, h3 {
     font-size: 24px;
 }
 
+.stButton {
+    width: 100%;
+}
+
 .stButton > button {
     width: 100%;
-    min-height: 58px;
+    min-height: 62px;
     border-radius: 18px !important;
     border: 0px !important;
     font-size: 18px !important;
@@ -154,7 +159,7 @@ h1, h2, h3 {
 }
 
 .stButton > button:hover {
-    transform: scale(1.04);
+    transform: scale(1.025);
     transition: 0.15s;
     background: linear-gradient(90deg, #f7c948, #f97316) !important;
     color: #06172e !important;
@@ -364,13 +369,10 @@ def show_match(t1, t2, match_index):
         </div>
         """, unsafe_allow_html=True)
 
-        btn_left, btn_center, btn_right = st.columns([0.35, 1.3, 0.35])
-
-        with btn_center:
-            if st.button(f"Elegir {t1}", key=f"btn_{match_key}_{t1}"):
-                st.session_state.selected_winners[match_key] = t1
-                st.session_state.champion_probs = None
-                st.rerun()
+        if st.button(f"Elegir {t1}", key=f"btn_{match_key}_{t1}"):
+            st.session_state.selected_winners[match_key] = t1
+            st.session_state.champion_probs = None
+            st.rerun()
 
     with col2:
         st.markdown(f"""
@@ -394,13 +396,10 @@ def show_match(t1, t2, match_index):
         </div>
         """, unsafe_allow_html=True)
 
-        btn_left, btn_center, btn_right = st.columns([0.35, 1.3, 0.35])
-
-        with btn_center:
-            if st.button(f"Elegir {t2}", key=f"btn_{match_key}_{t2}"):
-                st.session_state.selected_winners[match_key] = t2
-                st.session_state.champion_probs = None
-                st.rerun()
+        if st.button(f"Elegir {t2}", key=f"btn_{match_key}_{t2}"):
+            st.session_state.selected_winners[match_key] = t2
+            st.session_state.champion_probs = None
+            st.rerun()
 
     if selected:
         st.markdown(
@@ -415,7 +414,7 @@ def show_match(t1, t2, match_index):
 # HEADER
 # --------------------------------------------------
 st.markdown("""
-<h1 class="center-text">🏆 Predictor Mundial 2026</h1>
+<h1 class="center-text">🏆 Modelo de Predicción y Simulación Mundial 2026 🏆</h1>
 <h3 class="center-text">Elegí tus ganadores y simulá el campeón más probable</h3>
 <p class="center-text">⚽ 🔥 🌎 ⭐ 🥅 🏟️</p>
 """, unsafe_allow_html=True)
