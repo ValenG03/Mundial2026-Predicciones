@@ -48,7 +48,7 @@ h1, h2, h3 {
     border: 1px solid rgba(255,255,255,0.18);
     border-radius: 20px;
     padding: 18px;
-    margin-bottom: 18px;
+    margin-bottom: 16px;
     box-shadow: 0 8px 25px rgba(0,0,0,0.28);
     min-height: 245px;
     width: 100%;
@@ -140,21 +140,19 @@ h1, h2, h3 {
     font-size: 24px;
 }
 
-/* Botones centrados, más anchos y más grandes */
+/* Botones */
 .stButton {
     width: 100%;
-    display: flex;
-    justify-content: center;
 }
 
 .stButton > button {
-    width: 92% !important;
-    min-height: 74px;
-    border-radius: 22px !important;
+    width: 100% !important;
+    min-height: 66px;
+    border-radius: 20px !important;
     border: 0px !important;
-    font-size: 19px !important;
+    font-size: 17px !important;
     font-weight: 900 !important;
-    padding: 1.05rem 1.4rem !important;
+    padding: 1rem 1.2rem !important;
     background: linear-gradient(90deg, #00c6ff, #0072ff) !important;
     color: white !important;
     text-align: center !important;
@@ -349,6 +347,18 @@ def get_next_round():
     return winners
 
 
+def centered_team_button(team, match_key):
+    """
+    Centra el botón debajo de la card del equipo.
+    La columna izquierda y derecha tienen el mismo peso,
+    por eso el botón queda centrado visualmente.
+    """
+    left_space, button_space, right_space = st.columns([1, 1.4, 1])
+
+    with button_space:
+        return st.button(f"Elegir {team}", key=f"btn_{match_key}_{team}")
+
+
 def show_match(t1, t2, match_index):
     p = match_probabilities(t1, t2, df)
     match_key = current_match_key(match_index)
@@ -372,7 +382,7 @@ def show_match(t1, t2, match_index):
         </div>
         """, unsafe_allow_html=True)
 
-        if st.button(f"Elegir {t1}", key=f"btn_{match_key}_{t1}"):
+        if centered_team_button(t1, match_key):
             st.session_state.selected_winners[match_key] = t1
             st.session_state.champion_probs = None
             st.rerun()
@@ -399,7 +409,7 @@ def show_match(t1, t2, match_index):
         </div>
         """, unsafe_allow_html=True)
 
-        if st.button(f"Elegir {t2}", key=f"btn_{match_key}_{t2}"):
+        if centered_team_button(t2, match_key):
             st.session_state.selected_winners[match_key] = t2
             st.session_state.champion_probs = None
             st.rerun()
