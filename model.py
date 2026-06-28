@@ -113,11 +113,11 @@ def match_probabilities(team1, team2, df):
     """
     Calcula la probabilidad estimada de que cada equipo pase de ronda.
 
-    El modelo combina:
+    Combina:
     - enfrentamientos directos entre ambos equipos;
-    - rendimiento histórico general de cada selección;
+    - rendimiento histórico general;
     - goles a favor y goles en contra;
-    - suavizado para evitar porcentajes extremos con pocos datos.
+    - suavizado para evitar porcentajes extremos.
     """
 
     h2h = head_to_head(team1, team2, df)
@@ -127,14 +127,12 @@ def match_probabilities(team1, team2, df):
     h2h_weight = min(h2h["games"] / 10, 0.55)
     strength_weight = 1 - h2h_weight
 
-    # Suavizado para enfrentamientos directos
     h2h_total = h2h["wins1"] + h2h["wins2"] + h2h["draws"] + 3
 
     h2h_p1 = (h2h["wins1"] + 1) / h2h_total
     h2h_p2 = (h2h["wins2"] + 1) / h2h_total
     h2h_draw = (h2h["draws"] + 1) / h2h_total
 
-    # Fuerza histórica general
     attack1 = s1["avg_goals_for"] / max(s2["avg_goals_against"], 0.25)
     attack2 = s2["avg_goals_for"] / max(s1["avg_goals_against"], 0.25)
 
@@ -162,16 +160,13 @@ def match_probabilities(team1, team2, df):
     p2 = p2 / total
     draw = draw / total
 
-    # En eliminación directa, el empate se reparte como definición por penales.
     advance1 = p1 + draw / 2
     advance2 = p2 + draw / 2
 
     return {
-        "win1": p1,
-        "win2": p2,
-        "draw": draw,
         "advance1": advance1,
         "advance2": advance2,
+        "draw": draw,
         "h2h_games": h2h["games"],
         "team1_games": s1["games"],
         "team2_games": s2["games"],
@@ -183,5 +178,4 @@ def simulate_match(team1, team2, df):
 
     if random.random() < p["advance1"]:
         return team1
-    else:
-        return team2
+    return team2
