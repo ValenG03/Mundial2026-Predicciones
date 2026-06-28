@@ -4,7 +4,7 @@ from model import load_results, match_probabilities, simulate_match
 
 
 st.set_page_config(
-    page_title="Predictor Mundial 2026",
+    page_title="Modelo de Predicción y Simulación Mundial 2026",
     page_icon="🏆",
     layout="wide"
 )
@@ -345,7 +345,7 @@ def show_match(t1, t2, match_index):
 # HEADER
 # --------------------------------------------------
 st.markdown("""
-<h1 class="center-text">🏆 Predictor Mundial 2026</h1>
+<h1 class="center-text">🏆 Modelo de Predicción y Simulación Mundial 2026</h1>
 <h3 class="center-text">Elegí tus ganadores y simulá el campeón más probable</h3>
 <p class="center-text">⚽🔥🌎⭐🥅🏟️</p>
 """, unsafe_allow_html=True)
