@@ -1,59 +1,59 @@
 import streamlit as st
-from model import predict_match
+from model import predict_proba, simulate_tournament
 
-st.title("🏆 Predictor Mundial 2026 - 16avos")
+st.title("🏆 Simulador Mundial 2026 (PRO)")
 
 # ---------------------------
-# PARTIDOS (basados en tu imagen)
+# BRACKET (tu imagen)
+# ⚠️ usar nombres EXACTOS del CSV
 # ---------------------------
-matches = [
-    ("ALE", "PAR"),
-    ("FRA", "SUE"),
-    ("SUD", "CAN"),
-    ("PBJ", "MAR"),
-    ("POR", "CRO"),
-    ("ESP", "AUT"),
-    ("USA", "BYH"),
-    ("BEL", "SEN"),
+teams = [
+    "Germany","Paraguay",
+    "France","Sweden",
+    "South Africa","Canada",
+    "Netherlands","Morocco",
+    "Portugal","Croatia",
+    "Spain","Austria",
+    "United States","Bosnia and Herzegovina",
+    "Belgium","Senegal",
 
-    ("BRA", "JAP"),
-    ("CDM", "NOR"),
-    ("MEX", "ECU"),
-    ("ING", "RDC"),
-    ("ARG", "CBV"),
-    ("AUS", "EGI"),
-    ("SUI", "AGL"),
-    ("COL", "GHA"),
+    "Brazil","Japan",
+    "Ivory Coast","Norway",
+    "Mexico","Ecuador",
+    "England","DR Congo",
+    "Argentina","Cape Verde",
+    "Australia","Egypt",
+    "Switzerland","Algeria",
+    "Colombia","Ghana"
 ]
 
 # ---------------------------
-# Mostrar predicciones
+# PROBABILIDADES PARTIDOS
 # ---------------------------
-for t1, t2 in matches:
-    probs = predict_match(t1, t2)
+st.subheader("🔮 16avos de final")
+
+for i in range(0, len(teams), 2):
+    t1, t2 = teams[i], teams[i+1]
+    p = predict_proba(t1, t2)
 
     st.write(
         f"**{t1} vs {t2}**  \n"
-        f"1️⃣ {probs['team1_win']*100:.1f}% | "
-        f"❌ {probs['draw']*100:.1f}% | "
-        f"2️⃣ {probs['team2_win']*100:.1f}%"
+        f"1️⃣ {p['win1']*100:.1f}% | ❌ {p['draw']*100:.1f}% | 2️⃣ {p['win2']*100:.1f}%"
     )
 
 # ---------------------------
-# Descarga CSV
+# SIMULACIÓN
 # ---------------------------
-import pandas as pd
+st.subheader("🧠 Simulación del torneo")
 
-data = []
-for t1, t2 in matches:
-    p = predict_match(t1, t2)
-    data.append([t1, t2, p['team1_win'], p['draw'], p['team2_win']])
+n = st.slider("Cantidad de simulaciones", 100, 10000, 2000)
 
-df = pd.DataFrame(data, columns=["Team1", "Team2", "Win1", "Draw", "Win2"])
+if st.button("Simular Mundial"):
+    results = simulate_tournament(teams, n)
 
-st.download_button(
-    "⬇️ Descargar predicciones",
-    df.to_csv(index=False),
-    "predicciones.csv",
-    "text/csv"
-)
+    st.subheader("🏆 Probabilidad de ser campeón")
+
+    for team, prob in results.items():
+        st.write(f"{team}: {prob*100:.2f}%")
+
+    st.bar_chart(results)
