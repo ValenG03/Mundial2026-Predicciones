@@ -1,12 +1,12 @@
 import streamlit as st
-from model import match_probabilities, simulate_match
+from model import match_probabilities
+import random
 
 st.set_page_config(layout="wide")
-
-st.title("🏆 Mundial 2026 — Simulador Interactivo")
+st.title("🏆 Mundial 2026 — Bracket Inteligente")
 
 # -----------------------------
-# Equipos (16avos)
+# Equipos iniciales
 # -----------------------------
 teams = [
     "Germany","Paraguay","France","Sweden","South Africa","Canada",
@@ -18,7 +18,28 @@ teams = [
 ]
 
 # -----------------------------
-# Función visual partido
+# Estado persistente
+# -----------------------------
+if "current_round" not in st.session_state:
+    st.session_state.current_round = teams
+
+if "history" not in st.session_state:
+    st.session_state.history = []
+
+# -----------------------------
+# Simular partido (automático)
+# -----------------------------
+def simulate_match(t1, t2):
+    p = match_probabilities(t1, t2)
+
+    # eliminamos empate → lo redistribuimos
+    p1 = p["win1"] + p["draw"]/2
+    p2 = p["win2"] + p["draw"]/2
+
+    return t1 if random.random() < p1/(p1+p2) else t2
+
+# -----------------------------
+# UI partido
 # -----------------------------
 def play_match(t1, t2, key):
     p = match_probabilities(t1, t2)
@@ -39,67 +60,54 @@ def play_match(t1, t2, key):
     return None
 
 # -----------------------------
-# RONDA 1
+# Ronda actual
 # -----------------------------
-st.subheader("🔹 16avos de Final")
+round_teams = st.session_state.current_round
+next_round = []
 
-winners_16 = []
+st.subheader(f"🔄 Ronda ({len(round_teams)} equipos)")
 
-for i in range(0, len(teams), 2):
-    winner = play_match(teams[i], teams[i+1], f"r16_{i}")
+for i in range(0, len(round_teams), 2):
+    t1, t2 = round_teams[i], round_teams[i+1]
+
+    winner = play_match(t1, t2, f"match_{i}")
 
     if winner:
-        winners_16.append(winner)
+        next_round.append(winner)
 
 # -----------------------------
-# RONDA 2
+# Avanzar manualmente
 # -----------------------------
-if len(winners_16) == 16:
-    st.subheader("🔸 Octavos de Final")
-
-    winners_8 = []
-
-    for i in range(0, len(winners_16), 2):
-        winner = play_match(winners_16[i], winners_16[i+1], f"r8_{i}")
-
-        if winner:
-            winners_8.append(winner)
+if len(next_round) == len(round_teams)//2:
+    if st.button("➡️ Confirmar ganadores de la ronda"):
+        st.session_state.history.append(next_round)
+        st.session_state.current_round = next_round
+        st.rerun()
 
 # -----------------------------
-# RONDA 3
+# SIMULAR RESTO
 # -----------------------------
-    if len(winners_8) == 8:
-        st.subheader("🔶 Cuartos de Final")
+if st.button("⚡ Simular resto del torneo"):
 
-        winners_4 = []
+    simulated = round_teams.copy()
 
-        for i in range(0, len(winners_8), 2):
-            winner = play_match(winners_8[i], winners_8[i+1], f"r4_{i}")
+    while len(simulated) > 1:
+        temp = []
 
-            if winner:
-                winners_4.append(winner)
+        for i in range(0, len(simulated), 2):
+            t1, t2 = simulated[i], simulated[i+1]
+            winner = simulate_match(t1, t2)
+            temp.append(winner)
 
-# -----------------------------
-# SEMIS
-# -----------------------------
-        if len(winners_4) == 4:
-            st.subheader("🔥 Semifinales")
+        simulated = temp
 
-            winners_2 = []
-
-            for i in range(0, len(winners_4), 2):
-                winner = play_match(winners_4[i], winners_4[i+1], f"r2_{i}")
-
-                if winner:
-                    winners_2.append(winner)
+    st.success(f"🏆 Campeón simulado: {simulated[0]}")
 
 # -----------------------------
-# FINAL
+# Mostrar progreso
 # -----------------------------
-            if len(winners_2) == 2:
-                st.subheader("🏆 Final")
+if st.session_state.history:
+    st.subheader("📊 Progreso del torneo")
 
-                champion = play_match(winners_2[0], winners_2[1], "final")
-
-                if champion:
-                    st.success(f"🏆 Campeón: {champion}")
+    for i, rnd in enumerate(st.session_state.history):
+        st.write(f"Ronda {i+1}: {', '.join(rnd)}")
