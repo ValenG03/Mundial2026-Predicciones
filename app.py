@@ -4,7 +4,7 @@ from model import load_results, match_probabilities, simulate_match
 
 
 st.set_page_config(
-    page_title="Predictor Mundial 2026",
+    page_title="Modelo de Predicción y Simulación Mundial 2026 🏆",
     page_icon="🏆",
     layout="wide"
 )
@@ -139,18 +139,27 @@ h1, h2, h3 {
     font-size: 24px;
 }
 
+.stButton {
+    display: flex;
+    justify-content: center;
+}
+
 .stButton > button {
-    width: 100%;
-    border-radius: 14px !important;
+    width: 82%;
+    min-height: 58px;
+    border-radius: 18px !important;
     border: 0px !important;
-    font-weight: 700 !important;
-    padding: 0.75rem 1rem !important;
+    font-size: 18px !important;
+    font-weight: 900 !important;
+    padding: 0.95rem 1.25rem !important;
     background: linear-gradient(90deg, #00c6ff, #0072ff) !important;
     color: white !important;
+    text-align: center !important;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.30);
 }
 
 .stButton > button:hover {
-    transform: scale(1.02);
+    transform: scale(1.04);
     transition: 0.15s;
     background: linear-gradient(90deg, #f7c948, #f97316) !important;
     color: #06172e !important;
