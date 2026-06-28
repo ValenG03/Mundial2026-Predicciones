@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import random
 from model import load_results, match_probabilities, simulate_match
 
 
@@ -42,15 +41,31 @@ h1, h2, h3 {
     margin-bottom: 20px;
 }
 
-.big-flag {
-    font-size: 42px;
-    text-align: center;
+.flag-img {
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    width: 78px;
+    height: 52px;
+    object-fit: cover;
+    border-radius: 10px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.35);
 }
 
-.prob-text {
-    font-size: 15px;
+.prob-big {
+    font-size: 36px;
+    font-weight: 900;
+    color: #f7c948;
+    text-align: center;
+    margin-top: 6px;
+    margin-bottom: 2px;
+}
+
+.prob-label {
+    font-size: 14px;
     color: #d8e8ff;
     text-align: center;
+    margin-bottom: 8px;
 }
 
 .center-text {
@@ -122,39 +137,41 @@ teams = [
 ]
 
 
-flags = {
-    "Germany": "🇩🇪",
-    "Paraguay": "🇵🇾",
-    "France": "🇫🇷",
-    "Sweden": "🇸🇪",
-    "South Africa": "🇿🇦",
-    "Canada": "🇨🇦",
-    "Netherlands": "🇳🇱",
-    "Morocco": "🇲🇦",
-    "Portugal": "🇵🇹",
-    "Croatia": "🇭🇷",
-    "Spain": "🇪🇸",
-    "Austria": "🇦🇹",
-    "United States": "🇺🇸",
-    "Bosnia and Herzegovina": "🇧🇦",
-    "Belgium": "🇧🇪",
-    "Senegal": "🇸🇳",
-    "Brazil": "🇧🇷",
-    "Japan": "🇯🇵",
-    "Ivory Coast": "🇨🇮",
-    "Norway": "🇳🇴",
-    "Mexico": "🇲🇽",
-    "Ecuador": "🇪🇨",
-    "England": "🏴",
-    "DR Congo": "🇨🇩",
-    "Argentina": "🇦🇷",
-    "Cape Verde": "🇨🇻",
-    "Australia": "🇦🇺",
-    "Egypt": "🇪🇬",
-    "Switzerland": "🇨🇭",
-    "Algeria": "🇩🇿",
-    "Colombia": "🇨🇴",
-    "Ghana": "🇬🇭"
+# Códigos para usar banderas como imágenes.
+# Esto evita problemas de visualización de emojis en Windows / Microsoft / DELL.
+flag_codes = {
+    "Germany": "de",
+    "Paraguay": "py",
+    "France": "fr",
+    "Sweden": "se",
+    "South Africa": "za",
+    "Canada": "ca",
+    "Netherlands": "nl",
+    "Morocco": "ma",
+    "Portugal": "pt",
+    "Croatia": "hr",
+    "Spain": "es",
+    "Austria": "at",
+    "United States": "us",
+    "Bosnia and Herzegovina": "ba",
+    "Belgium": "be",
+    "Senegal": "sn",
+    "Brazil": "br",
+    "Japan": "jp",
+    "Ivory Coast": "ci",
+    "Norway": "no",
+    "Mexico": "mx",
+    "Ecuador": "ec",
+    "England": "gb-eng",
+    "DR Congo": "cd",
+    "Argentina": "ar",
+    "Cape Verde": "cv",
+    "Australia": "au",
+    "Egypt": "eg",
+    "Switzerland": "ch",
+    "Algeria": "dz",
+    "Colombia": "co",
+    "Ghana": "gh"
 }
 
 
@@ -183,16 +200,24 @@ if "selected_winners" not in st.session_state:
 if "history" not in st.session_state:
     st.session_state.history = []
 
+if "champion_probs" not in st.session_state:
+    st.session_state.champion_probs = None
+
 
 # --------------------------------------------------
 # FUNCIONES
 # --------------------------------------------------
 def fmt_pct(x):
-    return f"{x * 100:.1f}%"
+    return f"{x * 100:.0f}%"
 
 
-def get_flag(team):
-    return flags.get(team, "⚽")
+def get_flag_img(team):
+    code = flag_codes.get(team)
+
+    if not code:
+        return "https://upload.wikimedia.org/wikipedia/commons/8/8e/Football_%28soccer_ball%29.svg"
+
+    return f"https://flagcdn.com/w160/{code}.png"
 
 
 def current_match_key(match_index):
@@ -204,6 +229,7 @@ def reset_tournament():
     st.session_state.round_number = 1
     st.session_state.selected_winners = {}
     st.session_state.history = []
+    st.session_state.champion_probs = None
 
 
 def simulate_remaining_tournament(starting_teams, fixed_winners=None, simulations=3000):
@@ -234,68 +260,13 @@ def simulate_remaining_tournament(starting_teams, fixed_winners=None, simulation
 
         champion_counter[current[0]] += 1
 
-    return {
+    probs = {
         team: count / simulations
         for team, count in champion_counter.items()
         if count > 0
     }
 
-
-def show_match(t1, t2, match_index):
-    p = match_probabilities(t1, t2, df)
-    match_key = current_match_key(match_index)
-
-    selected = st.session_state.selected_winners.get(match_key)
-
-    st.markdown('<div class="match-card">', unsafe_allow_html=True)
-
-    col1, col2, col3 = st.columns([2.5, 1, 2.5])
-
-    with col1:
-        st.markdown(f"""
-        <div class="team-card">
-            <div class="big-flag">{get_flag(t1)}</div>
-            <h3 class="center-text">{t1}</h3>
-            <p class="prob-text">Gana en 90 min: {fmt_pct(p["win1"])}</p>
-            <p class="prob-text">Avanza estimado: {fmt_pct(p["advance1"])}</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-        if st.button(f"Elegir {get_flag(t1)} {t1}", key=f"btn_{match_key}_{t1}"):
-            st.session_state.selected_winners[match_key] = t1
-            st.rerun()
-
-    with col2:
-        st.markdown("""
-        <br><br>
-        <h1 class="center-text">⚔️</h1>
-        <p class="center-text">VS</p>
-        """, unsafe_allow_html=True)
-
-        st.metric("Empate histórico estimado", fmt_pct(p["draw"]))
-        st.caption(f"Partidos directos encontrados: {p['h2h_games']}")
-
-    with col3:
-        st.markdown(f"""
-        <div class="team-card">
-            <div class="big-flag">{get_flag(t2)}</div>
-            <h3 class="center-text">{t2}</h3>
-            <p class="prob-text">Gana en 90 min: {fmt_pct(p["win2"])}</p>
-            <p class="prob-text">Avanza estimado: {fmt_pct(p["advance2"])}</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-        if st.button(f"Elegir {get_flag(t2)} {t2}", key=f"btn_{match_key}_{t2}"):
-            st.session_state.selected_winners[match_key] = t2
-            st.rerun()
-
-    if selected:
-        st.markdown(
-            f'<div class="winner-box">✅ Clasificado elegido: {get_flag(selected)} {selected}</div>',
-            unsafe_allow_html=True
-        )
-
-    st.markdown("</div>", unsafe_allow_html=True)
+    return dict(sorted(probs.items(), key=lambda x: x[1], reverse=True))
 
 
 def get_next_round():
@@ -311,6 +282,65 @@ def get_next_round():
     return winners
 
 
+def show_match(t1, t2, match_index):
+    p = match_probabilities(t1, t2, df)
+    match_key = current_match_key(match_index)
+
+    selected = st.session_state.selected_winners.get(match_key)
+
+    prob_t1 = p["advance1"]
+    prob_t2 = p["advance2"]
+
+    st.markdown('<div class="match-card">', unsafe_allow_html=True)
+
+    col1, col2, col3 = st.columns([2.5, 1, 2.5])
+
+    with col1:
+        st.markdown(f"""
+        <div class="team-card">
+            <img class="flag-img" src="{get_flag_img(t1)}">
+            <h3 class="center-text">{t1}</h3>
+            <p class="prob-label">Probabilidad estimada de pasar de ronda</p>
+            <div class="prob-big">{prob_t1 * 100:.0f}%</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        if st.button(f"Elegir {t1}", key=f"btn_{match_key}_{t1}"):
+            st.session_state.selected_winners[match_key] = t1
+            st.rerun()
+
+    with col2:
+        st.markdown("""
+        <br><br>
+        <h1 class="center-text">⚔️</h1>
+        <p class="center-text"><b>VS</b></p>
+        """, unsafe_allow_html=True)
+
+        st.caption(f"Partidos directos encontrados: {p['h2h_games']}")
+
+    with col3:
+        st.markdown(f"""
+        <div class="team-card">
+            <img class="flag-img" src="{get_flag_img(t2)}">
+            <h3 class="center-text">{t2}</h3>
+            <p class="prob-label">Probabilidad estimada de pasar de ronda</p>
+            <div class="prob-big">{prob_t2 * 100:.0f}%</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        if st.button(f"Elegir {t2}", key=f"btn_{match_key}_{t2}"):
+            st.session_state.selected_winners[match_key] = t2
+            st.rerun()
+
+    if selected:
+        st.markdown(
+            f'<div class="winner-box">✅ Clasificado elegido: {selected}</div>',
+            unsafe_allow_html=True
+        )
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
 # --------------------------------------------------
 # HEADER
 # --------------------------------------------------
@@ -320,8 +350,13 @@ st.markdown("""
 <p class="center-text">⚽🔥🌎⭐🥅🏟️</p>
 """, unsafe_allow_html=True)
 
+
+# --------------------------------------------------
+# SIDEBAR
+# --------------------------------------------------
 with st.sidebar:
     st.header("🎮 Panel del torneo")
+
     st.write(f"**Fase actual:** {round_names.get(len(st.session_state.round_teams), 'Ronda')}")
     st.write(f"**Equipos vivos:** {len(st.session_state.round_teams)}")
     st.write(f"**Partidos históricos en results.csv:** {len(df)}")
@@ -334,8 +369,9 @@ with st.sidebar:
 
     st.subheader("📌 Nota metodológica")
     st.write(
-        "Las probabilidades salen de resultados históricos. "
-        "No son una predicción perfecta del Mundial 2026: sirven para jugar, comparar y explorar escenarios."
+        "Las probabilidades se estiman con resultados históricos. "
+        "No representan una predicción perfecta del Mundial 2026, "
+        "sino una herramienta interactiva para comparar escenarios."
     )
 
 
@@ -351,11 +387,11 @@ if len(current_teams) == 1:
     champion = current_teams[0]
 
     st.balloons()
-    st.success(f"🏆 Campeón elegido: {get_flag(champion)} {champion}")
+    st.success(f"🏆 Campeón elegido: {champion}")
 
     st.markdown(f"""
     <div class="team-card">
-        <div class="big-flag">{get_flag(champion)}</div>
+        <img class="flag-img" src="{get_flag_img(champion)}">
         <h1 class="center-text">🏆 {champion}</h1>
         <h3 class="center-text">Campeón de tu simulación</h3>
     </div>
@@ -382,37 +418,36 @@ else:
                     "teams": current_teams.copy(),
                     "winners": next_round.copy()
                 })
+
                 st.session_state.round_teams = next_round
                 st.session_state.round_number += 1
                 st.session_state.selected_winners = {}
+                st.session_state.champion_probs = None
+
                 st.rerun()
         else:
             st.info("Elegí un ganador en todos los partidos para avanzar.")
 
     with col_b:
         if st.button("⚡ Simular campeón probable desde esta fase"):
-            probs = simulate_remaining_tournament(
+            st.session_state.champion_probs = simulate_remaining_tournament(
                 current_teams,
                 fixed_winners=st.session_state.selected_winners,
                 simulations=3000
             )
 
-            probs = dict(sorted(probs.items(), key=lambda x: x[1], reverse=True))
-
-            st.session_state["champion_probs"] = probs
-
 
 # --------------------------------------------------
 # PROBABILIDAD DE CAMPEÓN
 # --------------------------------------------------
-if "champion_probs" in st.session_state:
+if st.session_state.champion_probs:
     st.divider()
     st.subheader("🏆 Probabilidad de campeón según simulación")
 
-    probs = st.session_state["champion_probs"]
+    probs = st.session_state.champion_probs
     top_team = max(probs, key=probs.get)
 
-    st.success(f"🔥 Favorito actual: {get_flag(top_team)} {top_team} — {fmt_pct(probs[top_team])}")
+    st.success(f"🔥 Favorito actual: {top_team} — {fmt_pct(probs[top_team])}")
 
     chart_df = pd.DataFrame({
         "Equipo": list(probs.keys()),
@@ -421,8 +456,10 @@ if "champion_probs" in st.session_state:
 
     st.bar_chart(chart_df.set_index("Equipo"))
 
+    st.write("### Top 10 candidatos")
+
     for team, prob in list(probs.items())[:10]:
-        st.write(f"{get_flag(team)} **{team}**: {prob * 100:.2f}%")
+        st.write(f"⚽ **{team}**: {prob * 100:.0f}%")
 
 
 # --------------------------------------------------
@@ -440,7 +477,7 @@ if st.session_state.history:
             with cols[idx % 4]:
                 st.markdown(f"""
                 <div class="team-card">
-                    <div class="big-flag">{get_flag(winner)}</div>
+                    <img class="flag-img" src="{get_flag_img(winner)}">
                     <p class="center-text"><b>{winner}</b></p>
                 </div>
                 """, unsafe_allow_html=True)
