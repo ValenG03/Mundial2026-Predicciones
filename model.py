@@ -67,4 +67,9 @@ def predict_proba(diff):
     return (p1 + p2) / 2
 
 # guardar
+joblib.dump({
+    "elo": elo,
+    "rf": rf,
+    "xgb": xgb_model
+}, "model.pkl")
 joblib.dump((elo, predict_proba), "model.pkl")
