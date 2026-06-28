@@ -140,6 +140,7 @@ h1, h2, h3 {
     font-size: 24px;
 }
 
+/* Botones */
 .stButton {
     width: 100%;
 }
@@ -149,9 +150,9 @@ h1, h2, h3 {
     min-height: 62px;
     border-radius: 18px !important;
     border: 0px !important;
-    font-size: 18px !important;
+    font-size: 16px !important;
     font-weight: 900 !important;
-    padding: 0.95rem 1.25rem !important;
+    padding: 0.95rem 1rem !important;
     background: linear-gradient(90deg, #00c6ff, #0072ff) !important;
     color: white !important;
     text-align: center !important;
@@ -346,6 +347,19 @@ def get_next_round():
     return winners
 
 
+def centered_team_button(team, match_key):
+    """
+    Centra el bloque completo del botón debajo de la card del equipo.
+    La proporción [1.15, 1, 1.15] deja el botón en el centro visual.
+    """
+    empty_left, button_col, empty_right = st.columns([1.15, 1, 1.15])
+
+    with button_col:
+        clicked = st.button(f"Elegir {team}", key=f"btn_{match_key}_{team}")
+
+    return clicked
+
+
 def show_match(t1, t2, match_index):
     p = match_probabilities(t1, t2, df)
     match_key = current_match_key(match_index)
@@ -369,7 +383,7 @@ def show_match(t1, t2, match_index):
         </div>
         """, unsafe_allow_html=True)
 
-        if st.button(f"Elegir {t1}", key=f"btn_{match_key}_{t1}"):
+        if centered_team_button(t1, match_key):
             st.session_state.selected_winners[match_key] = t1
             st.session_state.champion_probs = None
             st.rerun()
@@ -396,7 +410,7 @@ def show_match(t1, t2, match_index):
         </div>
         """, unsafe_allow_html=True)
 
-        if st.button(f"Elegir {t2}", key=f"btn_{match_key}_{t2}"):
+        if centered_team_button(t2, match_key):
             st.session_state.selected_winners[match_key] = t2
             st.session_state.champion_probs = None
             st.rerun()
