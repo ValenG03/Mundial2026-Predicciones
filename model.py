@@ -1,39 +1,70 @@
 import pandas as pd
-from xgboost import XGBClassifier
+import numpy as np
+from sklearn.ensemble import RandomForestClassifier
+import xgboost as xgb
+import joblib
 
-def load_data():
-    df = pd.read_csv("results.csv")
-    df = df[['home_team', 'away_team', 'home_score', 'away_score']].dropna()
-    
-    df['target'] = (df['home_score'] > df['away_score']).astype(int)
-    return df
+# -----------------------
+# 1. Load data
+# -----------------------
+df = pd.read_csv("results.csv")
 
-def simple_features(df):
-    teams = pd.concat([df['home_team'], df['away_team']]).unique()
-    team_map = {team: i for i, team in enumerate(teams)}
-    
-    df['home_id'] = df['home_team'].map(team_map)
-    df['away_id'] = df['away_team'].map(team_map)
-    
-    return df[['home_id', 'away_id']], df['target'], team_map
+# basic cleaning
+df = df.dropna(subset=["home_team", "away_team", "home_score", "away_score"])
 
-def train_model():
-    df = load_data()
-    X, y, team_map = simple_features(df)
-    
-    model = XGBClassifier(n_estimators=50, max_depth=4)
-    model.fit(X, y)
-    
-    return model, team_map
+# -----------------------
+# 2. Feature engineering (simple ELO-like)
+# -----------------------
+teams = pd.concat([df["home_team"], df["away_team"]]).unique()
+elo = {team: 1500 for team in teams}
 
-def predict(model, team_map, team1, team2):
-    if team1 not in team_map or team2 not in team_map:
-        return "Equipo desconocido"
+def update_elo(home, away, result):
+    K = 20
+    expected_home = 1 / (1 + 10 ** ((elo[away] - elo[home]) / 400))
+    elo[home] += K * (result - expected_home)
+    elo[away] += K * ((1 - result) - (1 - expected_home))
+
+features = []
+targets = []
+
+for _, row in df.iterrows():
+    h, a = row["home_team"], row["away_team"]
     
-    X = pd.DataFrame([{
-        'home_id': team_map[team1],
-        'away_id': team_map[team2]
-    }])
+    diff = elo[h] - elo[a]
     
-    prob = model.predict_proba(X)[0][1]
-    return prob
+    # target: 0=away,1=draw,2=home
+    if row["home_score"] > row["away_score"]:
+        y = 2
+        res = 1
+    elif row["home_score"] < row["away_score"]:
+        y = 0
+        res = 0
+    else:
+        y = 1
+        res = 0.5
+    
+    features.append([diff])
+    targets.append(y)
+
+    update_elo(h, a, res)
+
+X = np.array(features)
+y = np.array(targets)
+
+# -----------------------
+# 3. Models
+# -----------------------
+rf = RandomForestClassifier(n_estimators=100)
+xgb_model = xgb.XGBClassifier(num_class=3, eval_metric="mlogloss")
+
+rf.fit(X, y)
+xgb_model.fit(X, y)
+
+# ensemble simple
+def predict_proba(diff):
+    p1 = rf.predict_proba([[diff]])[0]
+    p2 = xgb_model.predict_proba([[diff]])[0]
+    return (p1 + p2) / 2
+
+# guardar
+joblib.dump((elo, predict_proba), "model.pkl")
