@@ -1,18 +1,24 @@
 import streamlit as st
 import joblib
 import os
+import numpy as np
 
-# si no existe el modelo → entrenar
 if not os.path.exists("model.pkl"):
-    import model  # ejecuta model.py y lo genera
+    import model
 
-elo, predict_proba = joblib.load("model.pkl")
+data = joblib.load("model.pkl")
+
+elo = data["elo"]
+rf = data["rf"]
+xgb_model = data["xgb"]
+
+def predict_proba(diff):
+    p1 = rf.predict_proba([[diff]])[0]
+    p2 = xgb_model.predict_proba([[diff]])[0]
+    return (p1 + p2) / 2
 
 st.title("🏆 FIFA World Cup 2026 Predictor")
 
-elo, predict_proba = joblib.load("model.pkl")
-
-# ejemplo fijo (podés expandir a 16avos después)
 matches = [
     ("France", "Sweden"),
     ("Brazil", "Germany"),
@@ -33,9 +39,3 @@ st.subheader(f"{team1} vs {team2}")
 st.markdown(f"""
 ### 1️⃣ {home*100:.1f}% | 🤝 {draw*100:.1f}% | 2️⃣ {away*100:.1f}%
 """)
-
-st.download_button(
-    "Download probabilities",
-    data=f"{team1},{team2},{home},{draw},{away}",
-    file_name="prediction.csv"
-)
