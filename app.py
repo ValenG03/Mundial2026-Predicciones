@@ -48,7 +48,7 @@ h1, h2, h3 {
     border: 1px solid rgba(255,255,255,0.18);
     border-radius: 20px;
     padding: 18px;
-    margin-bottom: 14px;
+    margin-bottom: 18px;
     box-shadow: 0 8px 25px rgba(0,0,0,0.28);
     min-height: 245px;
     width: 100%;
@@ -126,7 +126,7 @@ h1, h2, h3 {
     border-radius: 16px;
     padding: 10px;
     text-align: center;
-    margin-top: 10px;
+    margin-top: 12px;
 }
 
 .round-pill {
@@ -140,23 +140,25 @@ h1, h2, h3 {
     font-size: 24px;
 }
 
-/* Botones */
+/* Botones centrados, más anchos y más grandes */
 .stButton {
     width: 100%;
+    display: flex;
+    justify-content: center;
 }
 
 .stButton > button {
-    width: 100%;
-    min-height: 62px;
-    border-radius: 18px !important;
+    width: 92% !important;
+    min-height: 74px;
+    border-radius: 22px !important;
     border: 0px !important;
-    font-size: 17px !important;
+    font-size: 19px !important;
     font-weight: 900 !important;
-    padding: 0.95rem 1rem !important;
+    padding: 1.05rem 1.4rem !important;
     background: linear-gradient(90deg, #00c6ff, #0072ff) !important;
     color: white !important;
     text-align: center !important;
-    box-shadow: 0 6px 18px rgba(0,0,0,0.30);
+    box-shadow: 0 8px 22px rgba(0,0,0,0.35);
 }
 
 .stButton > button:hover {
@@ -347,19 +349,6 @@ def get_next_round():
     return winners
 
 
-def centered_team_button(team, match_key):
-    """
-    Botón ancho y centrado debajo de cada bloque de equipo.
-    La proporción [0.15, 2.7, 0.15] deja márgenes pequeños y estira el botón.
-    """
-    empty_left, button_col, empty_right = st.columns([0.15, 2.7, 0.15])
-
-    with button_col:
-        clicked = st.button(f"Elegir {team}", key=f"btn_{match_key}_{team}")
-
-    return clicked
-
-
 def show_match(t1, t2, match_index):
     p = match_probabilities(t1, t2, df)
     match_key = current_match_key(match_index)
@@ -383,7 +372,7 @@ def show_match(t1, t2, match_index):
         </div>
         """, unsafe_allow_html=True)
 
-        if centered_team_button(t1, match_key):
+        if st.button(f"Elegir {t1}", key=f"btn_{match_key}_{t1}"):
             st.session_state.selected_winners[match_key] = t1
             st.session_state.champion_probs = None
             st.rerun()
@@ -410,7 +399,7 @@ def show_match(t1, t2, match_index):
         </div>
         """, unsafe_allow_html=True)
 
-        if centered_team_button(t2, match_key):
+        if st.button(f"Elegir {t2}", key=f"btn_{match_key}_{t2}"):
             st.session_state.selected_winners[match_key] = t2
             st.session_state.champion_probs = None
             st.rerun()
