@@ -7,7 +7,7 @@ from sklearn.metrics import accuracy_score
 # -----------------------------
 # 1. Cargar dataset
 # -----------------------------
-df = pd.read_csv("data/results.csv")
+df = pd.read_csv("results.csv")
 df = df.sort_values("date")
 
 # -----------------------------
