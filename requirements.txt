@@ -1,4 +1,6 @@
+streamlit
 pandas
 numpy
-xgboost
 scikit-learn
+xgboost
+joblib
