@@ -1,92 +1,114 @@
 import pandas as pd
 import numpy as np
 from xgboost import XGBClassifier
-from sklearn.ensemble import RandomForestClassifier
 
 # ---------------------------
-# 1. Cargar datos
+# 1. DATA
 # ---------------------------
 df = pd.read_csv("results.csv")
-
-# Normalizar columnas
-df = df[['date', 'home_team', 'away_team', 'home_score', 'away_score']].dropna()
+df = df[['date','home_team','away_team','home_score','away_score']].dropna()
+df['date'] = pd.to_datetime(df['date'])
+df = df.sort_values("date")
 
 # ---------------------------
-# 2. Feature engineering simple
+# 2. ELO DINÁMICO
 # ---------------------------
-df['goal_diff'] = df['home_score'] - df['away_score']
-
-def result(row):
-    if row['goal_diff'] > 0:
-        return 1  # gana local
-    elif row['goal_diff'] < 0:
-        return 2  # gana visitante
-    else:
-        return 0  # empate
-
-df['result'] = df.apply(result, axis=1)
-
-# ELO simple
 elo = {}
 K = 20
 
 def get_elo(team):
     return elo.get(team, 1500)
 
-def update_elo(t1, t2, score1):
-    r1, r2 = get_elo(t1), get_elo(t2)
-    e1 = 1 / (1 + 10 ** ((r2 - r1) / 400))
-    elo[t1] = r1 + K * (score1 - e1)
-    elo[t2] = r2 + K * ((1 - score1) - (1 - e1))
+def expected(r1, r2):
+    return 1 / (1 + 10 ** ((r2 - r1) / 400))
 
-# Calcular ELO histórico
+def update_elo(t1, t2, s1):
+    r1, r2 = get_elo(t1), get_elo(t2)
+    e1 = expected(r1, r2)
+    elo[t1] = r1 + K * (s1 - e1)
+    elo[t2] = r2 + K * ((1 - s1) - (1 - e1))
+
+# construir dataset
+X, y = [], []
+
 for _, row in df.iterrows():
     t1, t2 = row['home_team'], row['away_team']
-    if row['result'] == 1:
+
+    e1, e2 = get_elo(t1), get_elo(t2)
+
+    # label
+    if row['home_score'] > row['away_score']:
+        res = 1
         s1 = 1
-    elif row['result'] == 2:
+    elif row['home_score'] < row['away_score']:
+        res = 2
         s1 = 0
     else:
+        res = 0
         s1 = 0.5
+
+    X.append([e1, e2, e1 - e2])
+    y.append(res)
+
     update_elo(t1, t2, s1)
-
-# ---------------------------
-# 3. Dataset final
-# ---------------------------
-X = []
-y = []
-
-for _, row in df.iterrows():
-    t1, t2 = row['home_team'], row['away_team']
-    X.append([get_elo(t1), get_elo(t2)])
-    y.append(row['result'])
 
 X = np.array(X)
 y = np.array(y)
 
 # ---------------------------
-# 4. Modelos
+# 3. MODELO
 # ---------------------------
-xgb = XGBClassifier(eval_metric='mlogloss')
-rf = RandomForestClassifier()
-
-xgb.fit(X, y)
-rf.fit(X, y)
+model = XGBClassifier(eval_metric="mlogloss")
+model.fit(X, y)
 
 # ---------------------------
-# 5. Predicción
+# 4. PREDICCIÓN
 # ---------------------------
-def predict_match(team1, team2):
-    e1, e2 = get_elo(team1), get_elo(team2)
-    features = np.array([[e1, e2]])
-
-    p1 = xgb.predict_proba(features)[0]
-    p2 = rf.predict_proba(features)[0]
-
-    probs = (p1 + p2) / 2
+def predict_proba(t1, t2):
+    e1, e2 = get_elo(t1), get_elo(t2)
+    probs = model.predict_proba([[e1, e2, e1 - e2]])[0]
 
     return {
-        "team1_win": probs[1],
+        "win1": probs[1],
         "draw": probs[0],
-        "team2_win": probs[2]
+        "win2": probs[2]
     }
+
+# ---------------------------
+# 5. SIMULACIÓN PARTIDO
+# ---------------------------
+def simulate_match(t1, t2):
+    p = predict_proba(t1, t2)
+    r = np.random.rand()
+
+    if r < p["win1"]:
+        return t1
+    elif r < p["win1"] + p["draw"]:
+        return np.random.choice([t1, t2])  # penales
+    else:
+        return t2
+
+# ---------------------------
+# 6. SIMULACIÓN TORNEO
+# ---------------------------
+def simulate_tournament(bracket, n=1000):
+    winners = {}
+
+    for _ in range(n):
+        round_teams = bracket[:]
+
+        while len(round_teams) > 1:
+            next_round = []
+            for i in range(0, len(round_teams), 2):
+                winner = simulate_match(round_teams[i], round_teams[i+1])
+                next_round.append(winner)
+            round_teams = next_round
+
+        champ = round_teams[0]
+        winners[champ] = winners.get(champ, 0) + 1
+
+    # probabilidades
+    for k in winners:
+        winners[k] /= n
+
+    return dict(sorted(winners.items(), key=lambda x: -x[1]))
