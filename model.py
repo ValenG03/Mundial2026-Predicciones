@@ -12,8 +12,10 @@ def load_results(path="results.csv"):
         raise ValueError(f"Faltan columnas en results.csv: {missing}")
 
     df = df.dropna(subset=["home_team", "away_team", "home_score", "away_score"])
+
     df["home_score"] = pd.to_numeric(df["home_score"], errors="coerce")
     df["away_score"] = pd.to_numeric(df["away_score"], errors="coerce")
+
     df = df.dropna(subset=["home_score", "away_score"])
 
     return df
@@ -33,8 +35,11 @@ def team_historical_strength(team, df):
             "avg_goals_against": 1.0,
         }
 
-    wins = draws = losses = 0
-    goals_for = goals_against = 0
+    wins = 0
+    draws = 0
+    losses = 0
+    goals_for = 0
+    goals_against = 0
 
     for _, row in games.iterrows():
         if row["home_team"] == team:
@@ -73,17 +78,19 @@ def head_to_head(team1, team2, df):
         ((df["home_team"] == team2) & (df["away_team"] == team1))
     ]
 
-    wins1 = wins2 = draws = 0
+    wins1 = 0
+    wins2 = 0
+    draws = 0
 
     for _, row in games.iterrows():
         home = row["home_team"]
         away = row["away_team"]
         hs = row["home_score"]
-        as_ = row["away_score"]
+        away_score = row["away_score"]
 
-        if hs == as_:
+        if hs == away_score:
             draws += 1
-        elif hs > as_:
+        elif hs > away_score:
             if home == team1:
                 wins1 += 1
             else:
@@ -104,12 +111,13 @@ def head_to_head(team1, team2, df):
 
 def match_probabilities(team1, team2, df):
     """
-    Devuelve probabilidades históricas estimadas para un partido eliminatorio.
+    Calcula la probabilidad estimada de que cada equipo pase de ronda.
 
-    Combina:
-    - historial directo entre ambos equipos;
+    El modelo combina:
+    - enfrentamientos directos entre ambos equipos;
     - rendimiento histórico general de cada selección;
-    - suavizado para evitar probabilidades extremas cuando hay pocos partidos.
+    - goles a favor y goles en contra;
+    - suavizado para evitar porcentajes extremos con pocos datos.
     """
 
     h2h = head_to_head(team1, team2, df)
@@ -119,13 +127,14 @@ def match_probabilities(team1, team2, df):
     h2h_weight = min(h2h["games"] / 10, 0.55)
     strength_weight = 1 - h2h_weight
 
-    # Suavizado Laplace para enfrentamientos directos
+    # Suavizado para enfrentamientos directos
     h2h_total = h2h["wins1"] + h2h["wins2"] + h2h["draws"] + 3
+
     h2h_p1 = (h2h["wins1"] + 1) / h2h_total
     h2h_p2 = (h2h["wins2"] + 1) / h2h_total
     h2h_draw = (h2h["draws"] + 1) / h2h_total
 
-    # Fuerza general histórica
+    # Fuerza histórica general
     attack1 = s1["avg_goals_for"] / max(s2["avg_goals_against"], 0.25)
     attack2 = s2["avg_goals_for"] / max(s1["avg_goals_against"], 0.25)
 
@@ -141,27 +150,28 @@ def match_probabilities(team1, team2, df):
         strength_p1 = score1 / total_score
         strength_p2 = score2 / total_score
 
-    # En eliminatorias el empate se reparte como definición por penales
     draw_base = 0.18
+
     p1 = h2h_weight * h2h_p1 + strength_weight * strength_p1
     p2 = h2h_weight * h2h_p2 + strength_weight * strength_p2
     draw = h2h_weight * h2h_draw + strength_weight * draw_base
 
     total = p1 + p2 + draw
 
-    p1 /= total
-    p2 /= total
-    draw /= total
+    p1 = p1 / total
+    p2 = p2 / total
+    draw = draw / total
 
-    knockout_p1 = p1 + draw / 2
-    knockout_p2 = p2 + draw / 2
+    # En eliminación directa, el empate se reparte como definición por penales.
+    advance1 = p1 + draw / 2
+    advance2 = p2 + draw / 2
 
     return {
         "win1": p1,
         "win2": p2,
         "draw": draw,
-        "advance1": knockout_p1,
-        "advance2": knockout_p2,
+        "advance1": advance1,
+        "advance2": advance2,
         "h2h_games": h2h["games"],
         "team1_games": s1["games"],
         "team2_games": s2["games"],
@@ -170,4 +180,8 @@ def match_probabilities(team1, team2, df):
 
 def simulate_match(team1, team2, df):
     p = match_probabilities(team1, team2, df)
-    return team1 if random.random() < p["advance1"] else team2
+
+    if random.random() < p["advance1"]:
+        return team1
+    else:
+        return team2
