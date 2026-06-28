@@ -1,5 +1,12 @@
 import streamlit as st
 import joblib
+import os
+
+# si no existe el modelo → entrenar
+if not os.path.exists("model.pkl"):
+    import model  # ejecuta model.py y lo genera
+
+elo, predict_proba = joblib.load("model.pkl")
 
 st.title("🏆 FIFA World Cup 2026 Predictor")
 
