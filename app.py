@@ -1,7 +1,7 @@
 import streamlit as st
 from model import predict_proba, simulate_tournament
 
-st.title("🏆 Simulador Mundial 2026 (PRO)")
+st.title("🏆 Simulador Mundial 2026")
 
 # ---------------------------
 # BRACKET (tu imagen)
