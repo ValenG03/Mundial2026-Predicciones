@@ -1,0 +1,19 @@
+name: Weekly Update
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'  # lunes
+  workflow_dispatch:
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install deps
+        run: pip install pandas xgboost scikit-learn
+
+      - name: Run training check
+        run: python model.py
