@@ -1,10 +1,24 @@
 import streamlit as st
 import pandas as pd
-from model import train_model
 
-st.title("🏆 FIFA 2026 Predictor (Knockout)")
+st.title("🏆 FIFA 2026 Predictor")
 
-model, elo = train_model()
+try:
+    df = pd.read_csv("results.csv")
+    st.write("✅ Dataset cargado", df.head())
+
+except Exception as e:
+    st.error(f"Error cargando dataset: {e}")
+    st.stop()
+
+try:
+    from model import train_model
+    model, elo = train_model()
+    st.write("✅ Modelo entrenado")
+
+except Exception as e:
+    st.error(f"Error entrenando modelo: {e}")
+    st.stop()
 
 teams = list(elo.keys())
 
@@ -12,17 +26,15 @@ team1 = st.selectbox("Equipo 1", teams)
 team2 = st.selectbox("Equipo 2", teams)
 
 if st.button("Predecir"):
-    e1 = elo.get(team1, 1500)
-    e2 = elo.get(team2, 1500)
+    try:
+        e1 = elo.get(team1, 1500)
+        e2 = elo.get(team2, 1500)
 
-    X = pd.DataFrame([[e1, e2]], columns=["elo_home", "elo_away"])
-    prob = model.predict_proba(X)[0][1]
+        X = pd.DataFrame([[e1, e2]], columns=["elo_home", "elo_away"])
+        prob = model.predict_proba(X)[0][1]
 
-    st.write(f"Probabilidad de victoria de {team1}: {prob:.2f}")
-    st.write(f"Probabilidad de victoria de {team2}: {1 - prob:.2f}")
+        st.success(f"{team1}: {prob:.2f}")
+        st.success(f"{team2}: {1 - prob:.2f}")
 
-st.download_button(
-    "Descargar dataset",
-    data=pd.read_csv("results.csv").to_csv(index=False),
-    file_name="results.csv"
-)
+    except Exception as e:
+        st.error(f"Error en predicción: {e}")
