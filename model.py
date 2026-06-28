@@ -1,141 +1,173 @@
 import pandas as pd
-import numpy as np
-from scipy.stats import poisson
+import random
 
-# ---------------------------
-# 1. DATA
-# ---------------------------
-df = pd.read_csv("results.csv")
-df = df[['date','home_team','away_team','home_score','away_score']].dropna()
 
-df['date'] = pd.to_datetime(df['date'])
-df = df.sort_values("date")
+def load_results(path="results.csv"):
+    df = pd.read_csv(path)
 
-# ---------------------------
-# 2. DECAY TEMPORAL
-# ---------------------------
-HALF_LIFE = 365 * 2  # 2 años
+    required_cols = {"home_team", "away_team", "home_score", "away_score"}
+    missing = required_cols - set(df.columns)
 
-def time_weight(date, max_date):
-    days = (max_date - date).days
-    return np.exp(-days / HALF_LIFE)
+    if missing:
+        raise ValueError(f"Faltan columnas en results.csv: {missing}")
 
-max_date = df['date'].max()
-df['weight'] = df['date'].apply(lambda d: time_weight(d, max_date))
+    df = df.dropna(subset=["home_team", "away_team", "home_score", "away_score"])
+    df["home_score"] = pd.to_numeric(df["home_score"], errors="coerce")
+    df["away_score"] = pd.to_numeric(df["away_score"], errors="coerce")
+    df = df.dropna(subset=["home_score", "away_score"])
 
-# ---------------------------
-# 3. PARAMETROS BASE
-# ---------------------------
-teams = pd.concat([df['home_team'], df['away_team']]).unique()
+    return df
 
-attack = {t:1.0 for t in teams}
-defense = {t:1.0 for t in teams}
 
-avg_goals = (df['home_score'] + df['away_score']).mean() / 2
+def team_historical_strength(team, df):
+    games = df[(df["home_team"] == team) | (df["away_team"] == team)]
 
-# ---------------------------
-# 4. ESTIMACIÓN ITERATIVA
-# ---------------------------
-for _ in range(10):
-    for t in teams:
-        home = df[df['home_team'] == t]
-        away = df[df['away_team'] == t]
+    if games.empty:
+        return {
+            "games": 0,
+            "wins": 0,
+            "draws": 0,
+            "losses": 0,
+            "win_rate": 0.33,
+            "avg_goals_for": 1.0,
+            "avg_goals_against": 1.0,
+        }
 
-        gf = (home['home_score'] * home['weight']).sum() + \
-             (away['away_score'] * away['weight']).sum()
+    wins = draws = losses = 0
+    goals_for = goals_against = 0
 
-        ga = (home['away_score'] * home['weight']).sum() + \
-             (away['home_score'] * away['weight']).sum()
+    for _, row in games.iterrows():
+        if row["home_team"] == team:
+            gf = row["home_score"]
+            ga = row["away_score"]
+        else:
+            gf = row["away_score"]
+            ga = row["home_score"]
 
-        games = home['weight'].sum() + away['weight'].sum()
+        goals_for += gf
+        goals_against += ga
 
-        if games > 0:
-            attack[t] = (gf / games) / avg_goals
-            defense[t] = (ga / games) / avg_goals
+        if gf > ga:
+            wins += 1
+        elif gf == ga:
+            draws += 1
+        else:
+            losses += 1
 
-# ---------------------------
-# 5. EXPECTED GOALS
-# ---------------------------
-HOME_ADV = 1.1
+    total = wins + draws + losses
 
-def expected_goals(t1, t2):
-    lam1 = attack[t1] * defense[t2] * avg_goals * HOME_ADV
-    lam2 = attack[t2] * defense[t1] * avg_goals
-    return lam1, lam2
+    return {
+        "games": total,
+        "wins": wins,
+        "draws": draws,
+        "losses": losses,
+        "win_rate": wins / total if total else 0.33,
+        "avg_goals_for": goals_for / total if total else 1.0,
+        "avg_goals_against": goals_against / total if total else 1.0,
+    }
 
-# ---------------------------
-# 6. DIXON-COLES AJUSTE
-# ---------------------------
-def dixon_coles_correction(i, j, lam1, lam2, rho=0.1):
-    if i == 0 and j == 0:
-        return 1 - (lam1 * lam2 * rho)
-    elif i == 0 and j == 1:
-        return 1 + lam1 * rho
-    elif i == 1 and j == 0:
-        return 1 + lam2 * rho
-    elif i == 1 and j == 1:
-        return 1 - rho
-    return 1
 
-# ---------------------------
-# 7. PROBABILIDADES PARTIDO
-# ---------------------------
-def match_probabilities(t1, t2, max_goals=6):
-    lam1, lam2 = expected_goals(t1, t2)
+def head_to_head(team1, team2, df):
+    games = df[
+        ((df["home_team"] == team1) & (df["away_team"] == team2)) |
+        ((df["home_team"] == team2) & (df["away_team"] == team1))
+    ]
 
-    p1 = p2 = draw = 0
+    wins1 = wins2 = draws = 0
 
-    for i in range(max_goals):
-        for j in range(max_goals):
-            base = poisson.pmf(i, lam1) * poisson.pmf(j, lam2)
-            adj = dixon_coles_correction(i, j, lam1, lam2)
-            p = base * adj
+    for _, row in games.iterrows():
+        home = row["home_team"]
+        away = row["away_team"]
+        hs = row["home_score"]
+        as_ = row["away_score"]
 
-            if i > j:
-                p1 += p
-            elif j > i:
-                p2 += p
+        if hs == as_:
+            draws += 1
+        elif hs > as_:
+            if home == team1:
+                wins1 += 1
             else:
-                draw += p
+                wins2 += 1
+        else:
+            if away == team1:
+                wins1 += 1
+            else:
+                wins2 += 1
 
-    return {"win1": p1, "draw": draw, "win2": p2}
+    return {
+        "games": len(games),
+        "wins1": wins1,
+        "wins2": wins2,
+        "draws": draws,
+    }
 
-# ---------------------------
-# 8. SIMULAR PARTIDO
-# ---------------------------
-def simulate_match(t1, t2):
-    lam1, lam2 = expected_goals(t1, t2)
 
-    g1 = poisson.rvs(lam1)
-    g2 = poisson.rvs(lam2)
+def match_probabilities(team1, team2, df):
+    """
+    Devuelve probabilidades históricas estimadas para un partido eliminatorio.
 
-    if g1 > g2:
-        return t1
-    elif g2 > g1:
-        return t2
+    Combina:
+    - historial directo entre ambos equipos;
+    - rendimiento histórico general de cada selección;
+    - suavizado para evitar probabilidades extremas cuando hay pocos partidos.
+    """
+
+    h2h = head_to_head(team1, team2, df)
+    s1 = team_historical_strength(team1, df)
+    s2 = team_historical_strength(team2, df)
+
+    h2h_weight = min(h2h["games"] / 10, 0.55)
+    strength_weight = 1 - h2h_weight
+
+    # Suavizado Laplace para enfrentamientos directos
+    h2h_total = h2h["wins1"] + h2h["wins2"] + h2h["draws"] + 3
+    h2h_p1 = (h2h["wins1"] + 1) / h2h_total
+    h2h_p2 = (h2h["wins2"] + 1) / h2h_total
+    h2h_draw = (h2h["draws"] + 1) / h2h_total
+
+    # Fuerza general histórica
+    attack1 = s1["avg_goals_for"] / max(s2["avg_goals_against"], 0.25)
+    attack2 = s2["avg_goals_for"] / max(s1["avg_goals_against"], 0.25)
+
+    score1 = 0.65 * s1["win_rate"] + 0.35 * attack1
+    score2 = 0.65 * s2["win_rate"] + 0.35 * attack2
+
+    total_score = score1 + score2
+
+    if total_score == 0:
+        strength_p1 = 0.5
+        strength_p2 = 0.5
     else:
-        return np.random.choice([t1, t2])  # penales
+        strength_p1 = score1 / total_score
+        strength_p2 = score2 / total_score
 
-# ---------------------------
-# 9. MONTE CARLO TORNEO
-# ---------------------------
-def simulate_tournament(bracket, n=10000):
-    winners = {}
+    # En eliminatorias el empate se reparte como definición por penales
+    draw_base = 0.18
+    p1 = h2h_weight * h2h_p1 + strength_weight * strength_p1
+    p2 = h2h_weight * h2h_p2 + strength_weight * strength_p2
+    draw = h2h_weight * h2h_draw + strength_weight * draw_base
 
-    for _ in range(n):
-        teams = bracket[:]
+    total = p1 + p2 + draw
 
-        while len(teams) > 1:
-            next_round = []
-            for i in range(0, len(teams), 2):
-                w = simulate_match(teams[i], teams[i+1])
-                next_round.append(w)
-            teams = next_round
+    p1 /= total
+    p2 /= total
+    draw /= total
 
-        champ = teams[0]
-        winners[champ] = winners.get(champ, 0) + 1
+    knockout_p1 = p1 + draw / 2
+    knockout_p2 = p2 + draw / 2
 
-    for t in winners:
-        winners[t] /= n
+    return {
+        "win1": p1,
+        "win2": p2,
+        "draw": draw,
+        "advance1": knockout_p1,
+        "advance2": knockout_p2,
+        "h2h_games": h2h["games"],
+        "team1_games": s1["games"],
+        "team2_games": s2["games"],
+    }
 
-    return dict(sorted(winners.items(), key=lambda x: -x[1]))
+
+def simulate_match(team1, team2, df):
+    p = match_probabilities(team1, team2, df)
+    return team1 if random.random() < p["advance1"] else team2
