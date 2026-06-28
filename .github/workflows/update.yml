@@ -1,12 +1,12 @@
-name: Weekly Retrain
+name: Retrain Model
 
 on:
   schedule:
-    - cron: '0 3 * * 1'  # lunes
+    - cron: "0 0 * * 1"  # lunes
   workflow_dispatch:
 
 jobs:
-  retrain:
+  train:
     runs-on: ubuntu-latest
 
     steps:
@@ -15,6 +15,21 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
+          python-version: 3.10
+
+      - name: Install deps
+        run: pip install -r requirements.txt
+
+      - name: Train model
+        run: python model.py
+
+      - name: Commit model
+        run: |
+          git config --global user.name "bot"
+          git config --global user.email "bot@github.com"
+          git add model.pkl
+          git commit -m "update model"
+          git push
           python-version: 3.10
 
       - name: Install deps
