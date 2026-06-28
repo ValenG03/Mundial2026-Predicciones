@@ -1,5 +1,12 @@
 import pickle
 import numpy as np
+import os
+
+if not os.path.exists("model.pkl"):
+    import model  # esto ejecuta model.py
+
+model = pickle.load(open("model.pkl", "rb"))
+
 
 model = pickle.load(open("model.pkl", "rb"))
 elo = pickle.load(open("elo.pkl", "rb"))
